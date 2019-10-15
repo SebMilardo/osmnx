@@ -37,6 +37,7 @@ from .downloader import get_osm_filter
 from .downloader import overpass_request
 from .errors import *
 
+
 def gdf_from_place(query, gdf_name=None, which_result=1, buffer_dist=None):
     """
     Create a GeoDataFrame from a single place name query.

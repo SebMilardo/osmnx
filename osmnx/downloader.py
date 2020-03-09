@@ -392,7 +392,8 @@ def nominatim_request(params, type="search", pause_duration=1, timeout=30, error
         return response_json
 
 
-def overpass_request(data, pause_duration=None, timeout=180, error_pause_duration=None):
+
+def overpass_request(data, pause_duration=0, timeout=180, error_pause_duration=None):
     """
     Send a request to the Overpass API via HTTP POST and return the JSON
     response.
@@ -416,29 +417,37 @@ def overpass_request(data, pause_duration=None, timeout=180, error_pause_duratio
 
     # define the Overpass API URL, then construct a GET-style URL as a string to
     # hash to look up/save to cache
-    url = settings.overpass_endpoint.rstrip('/') + '/interpreter'
+    log('1')
+    url = settings.overpass_endpoint.rstrip('/')+'/interpreter'
     prepared_url = requests.Request('GET', url, params=data).prepare().url
     cached_response_json = get_from_cache(prepared_url)
-
+    log('2')
     if cached_response_json is not None:
         # found this request in the cache, just return it instead of making a
         # new HTTP call
         return cached_response_json
 
     else:
+        log('3')
         # if this URL is not already in the cache, pause, then request it
         if pause_duration is None:
+            log('3.5')
             this_pause_duration = get_pause_duration()
-        log('Pausing {:,.2f} seconds before making API POST request'.format(this_pause_duration))
-        time.sleep(this_pause_duration)
+            log('4')
+        log('5')
+        log('6')
+        #time.sleep(this_pause_duration)
+        log('7')
         start_time = time.time()
+        log('8')
         log('Posting to {} with timeout={}, "{}"'.format(url, timeout, data))
+        log('9')
         response = requests.post(url, data=data, timeout=timeout, headers=get_http_headers())
-
+        log('10')
         # get the response size and the domain, log result
         size_kb = len(response.content) / 1000.
         domain = re.findall(r'(?s)//(.*?)/', url)[0]
-        log('Downloaded {:,.1f}KB from {} in {:,.2f} seconds'.format(size_kb, domain, time.time() - start_time))
+        log('Downloaded {:,.1f}KB from {} in {:,.2f} seconds'.format(size_kb, domain, time.time()-start_time))
 
         try:
             response_json = response.json()
@@ -446,30 +455,23 @@ def overpass_request(data, pause_duration=None, timeout=180, error_pause_duratio
                 log('Server remark: "{}"'.format(response_json['remark'], level=lg.WARNING))
             save_to_cache(prepared_url, response_json)
         except Exception:
-            # 429 is 'too many requests' and 504 is 'gateway timeout' from server
+            #429 is 'too many requests' and 504 is 'gateway timeout' from server
             # overload - handle these errors by recursively calling
             # overpass_request until we get a valid response
             if response.status_code in [429, 504]:
                 # pause for error_pause_duration seconds before re-trying request
                 if error_pause_duration is None:
                     error_pause_duration = get_pause_duration()
-                log(
-                    'Server at {} returned status code {} and no JSON data. Re-trying request in {:.2f} seconds.'.format(
-                        domain,
-                        response.status_code,
-                        error_pause_duration),
-                    level=lg.WARNING)
+                log('Server at {} returned status code {} and no JSON data. Re-trying request in {:.2f} seconds.'.format(domain,
+                                                                                                                         response.status_code,
+                                                                                                                         error_pause_duration),
+                                                                                                                         level=lg.WARNING)
                 time.sleep(error_pause_duration)
                 response_json = overpass_request(data=data, pause_duration=pause_duration, timeout=timeout)
 
             # else, this was an unhandled status_code, throw an exception
             else:
-                log('Server at {} returned status code {} and no JSON data'.format(domain, response.status_code),
-                    level=lg.ERROR)
-                raise Exception(
-                    'Server returned no JSON data.\n{} {}\n{}'.format(response, response.reason, response.text))
+                log('Server at {} returned status code {} and no JSON data'.format(domain, response.status_code), level=lg.ERROR)
+                raise Exception('Server returned no JSON data.\n{} {}\n{}'.format(response, response.reason, response.text))
 
         return response_json
-
-
-
